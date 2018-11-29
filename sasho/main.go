@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"math/big"
 	"strconv"
@@ -30,7 +31,10 @@ func main() {
 	}
 	defer db.Close()
 
-	exportBlocksChunk(10, 100, db, sqlDb)
+	for i := uint64(0); i < 6770; i++ {
+		exportBlocksChunk(1000*i, 1000, db, sqlDb)
+		fmt.Printf("Finished chunk %d\n", i)
+	}
 }
 
 func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, sqlDb *sql.DB) {
