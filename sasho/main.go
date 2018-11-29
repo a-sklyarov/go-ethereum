@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -14,10 +15,21 @@ func main() {
 	sqlDbPath := "/media/aleksandar/Samsung_T5/ethereum.db"
 	chaindata := "/media/aleksandar/Samsung_T5/ethereum/geth/chaindata"
 	insert := `
-		INSERT INTO Headers 
-			(ParentHash, Sha3Uncles, Miner, StateRoot, TransactionsRoot, ReceiptsRoot, 
-				LogsBloom, Difficulty, Number, GasLimit, GasUsed, Timestamp, ExtraData, MixHash, Nonce)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		INSERT INTO Blocks (
+			UnclesCount,
+			TxCount,
+			Number,
+			GasLimit,
+			GasUsed,
+			Difficulty,
+			Time,
+			Nonce,
+			Miner,
+			ParentHash,
+			Hash,
+			ExtraData
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	sqlDb, err := sql.Open("sqlite3", sqlDbPath)
 	if err != nil {
@@ -41,26 +53,21 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for n := uint64(0); n < 5; n++ {
+	for n := uint64(0); n < 15; n++ {
 		block := readBlock(db, n)
-		bloom, err := block.Header().Bloom.MarshalText()
-		nonce, err := block.Header().Nonce.MarshalText()
 		_, err = stmt.Exec(
-			block.Header().ParentHash.Hex(),
-			block.Header().UncleHash.Hex(),
-			block.Header().Coinbase.Hex(),
-			block.Header().Root.Hex(),
-			block.Header().TxHash.Hex(),
-			block.Header().ReceiptHash.Hex(),
-			string(bloom),
-			block.Header().Difficulty.String(),
-			block.Header().Number.String(),
-			block.Header().GasLimit,
-			block.Header().GasUsed,
-			block.Header().Time.String(),
-			string(block.Header().Extra),
-			block.Header().MixDigest.Hex(),
-			string(nonce))
+			len(block.Uncles()),
+			len(block.Transactions()),
+			block.NumberU64(),
+			block.GasLimit(),
+			block.GasUsed(),
+			block.Difficulty().String(),
+			block.Time().String(),
+			strconv.FormatUint(block.Nonce(), 10),
+			block.Coinbase().Hex(),
+			block.ParentHash().Hex(),
+			block.Hash().Hex(),
+			string(block.Extra()))
 		if err != nil {
 			log.Fatal(err)
 		}
