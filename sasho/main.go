@@ -3,33 +3,26 @@ package main
 import (
 	"database/sql"
 	"log"
+	"math/big"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/params"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
 	sqlDbPath := "/media/aleksandar/Samsung_T5/ethereum.db"
 	chaindata := "/media/aleksandar/Samsung_T5/ethereum/geth/chaindata"
-	insert := `
-		INSERT INTO Blocks (
-			UnclesCount,
-			TxCount,
-			Number,
-			GasLimit,
-			GasUsed,
-			Difficulty,
-			Time,
-			Nonce,
-			Miner,
-			ParentHash,
-			Hash,
-			ExtraData
-		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	insertIntoBlocks := `
+		INSERT INTO Blocks
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+	insertIntoTxs := `
+		INSERT INTO Transactions
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 	sqlDb, err := sql.Open("sqlite3", sqlDbPath)
 	if err != nil {
@@ -42,22 +35,29 @@ func main() {
 		log.Fatal(err)
 	}
 
-	stmt, err := tx.Prepare(insert)
+	insertBlock, err := tx.Prepare(insertIntoBlocks)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer stmt.Close()
+	defer insertBlock.Close()
+
+	insertTx, err := tx.Prepare(insertIntoTxs)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer insertTx.Close()
 
 	db, err := ethdb.NewLDBDatabase(chaindata, 512, 1024)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for n := uint64(0); n < 15; n++ {
+	for n := uint64(6000000); n < 6001000; n++ {
 		block := readBlock(db, n)
-		_, err = stmt.Exec(
+		transactions := block.Transactions()
+		_, err = insertBlock.Exec(
 			len(block.Uncles()),
-			len(block.Transactions()),
+			len(transactions),
 			block.NumberU64(),
 			block.GasLimit(),
 			block.GasUsed(),
@@ -70,6 +70,34 @@ func main() {
 			string(block.Extra()))
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		signer := types.MakeSigner(params.MainnetChainConfig, new(big.Int).SetUint64(n))
+		for _, tx := range transactions {
+			v, r, s := tx.RawSignatureValues()
+			from, _ := signer.Sender(tx)
+			to := tx.To()
+			toStr := "NULL"
+			if to != nil {
+				toStr = to.Hex()
+			}
+			_, err = insertTx.Exec(
+				tx.Hash().Hex(),
+				hexutil.Encode(tx.Data()),
+				tx.Gas(),
+				tx.GasPrice().String(),
+				tx.Value().String(),
+				tx.Nonce(),
+				toStr,
+				from.Hex(),
+				v.String(),
+				r.String(),
+				s.String(),
+				n,
+				signer.Hash(tx).Hex())
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 	tx.Commit()

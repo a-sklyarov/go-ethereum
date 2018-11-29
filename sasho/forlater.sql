@@ -29,7 +29,41 @@ INSERT INTO Blocks (
 	Hash,
 	ExtraData
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+
+CREATE TABLE `Transactions` (
+	`Hash`	TEXT,
+	`Data`	TEXT,
+	`Gas`	NUMERIC,
+	`GasPrice`	NUMERIC,
+	`Value`	NUMERIC,
+	`Nonce`	NUMERIC,
+	`To`	TEXT,
+	`From`	TEXT,
+	`V`	TEXT,
+	`R`	TEXT,
+	`S`	TEXT,
+	`BlockNumber`	INTEGER,
+    `M`	TEXT
+);
+
+INSERT INTO Transactions (
+	Hash,
+	Data,
+	Gas,
+	GasPrice,
+	Value,
+	Nonce,
+	To,
+	From,
+	V,
+	R,
+	S,
+	BlockNumber,
+    M
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 CREATE TABLE `Headers` (
 	`ParentHash`	TEXT,
