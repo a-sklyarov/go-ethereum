@@ -17,18 +17,29 @@ import (
 func main() {
 	sqlDbPath := "/media/aleksandar/Samsung_T5/ethereum.db"
 	chaindata := "/media/aleksandar/Samsung_T5/ethereum/geth/chaindata"
-	insertIntoBlocks := `
-		INSERT INTO Blocks
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
-	insertIntoTxs := `
-		INSERT INTO Transactions
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 	sqlDb, err := sql.Open("sqlite3", sqlDbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer sqlDb.Close()
+
+	db, err := ethdb.NewLDBDatabase(chaindata, 512, 1024)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	exportBlocksChunk(10, 100, db, sqlDb)
+}
+
+func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, sqlDb *sql.DB) {
+	insertIntoBlocks := `
+		INSERT INTO Blocks
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+	insertIntoTxs := `
+		INSERT INTO Transactions
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 	tx, err := sqlDb.Begin()
 	if err != nil {
@@ -47,12 +58,7 @@ func main() {
 	}
 	defer insertTx.Close()
 
-	db, err := ethdb.NewLDBDatabase(chaindata, 512, 1024)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for n := uint64(6000000); n < 6001000; n++ {
+	for n := blockStart; n < blockStart+chunkSize; n++ {
 		block := readBlock(db, n)
 		transactions := block.Transactions()
 		_, err = insertBlock.Exec(
