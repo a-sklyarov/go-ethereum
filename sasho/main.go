@@ -17,7 +17,7 @@ import (
 )
 
 func main() {
-	sqlDbPath := "/media/aleksandar/Samsung_T5/ethereum.db"
+	sqlDbPath := "/media/aleksandar/Samsung_T5/eth_txs.db"
 	chaindata := "/media/aleksandar/Samsung_T5/ethereum/geth/chaindata"
 	lastChunkNumberFile := "/media/aleksandar/Samsung_T5/lastChunk.txt"
 
@@ -39,8 +39,8 @@ func main() {
 }
 
 func startExporting(startChunk uint64, db rawdb.DatabaseReader, sqlDb *sql.DB, lastChunkNumberFile string) {
-	defer func() { //catch or finally
-		if err := recover(); err != nil { //catch
+	defer func() {
+		if err := recover(); err != nil {
 			fmt.Printf("Exception: %v\n", err)
 			fmt.Printf("Reading last chunk number from file...\n")
 			lastChunkNumber := readChunkFromFile(lastChunkNumberFile)
@@ -77,9 +77,6 @@ func readChunkFromFile(filePath string) uint64 {
 }
 
 func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, sqlDb *sql.DB) {
-	insertIntoBlocks := `
-		INSERT INTO Blocks
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 	insertIntoTxs := `
 		INSERT INTO Transactions
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
@@ -89,12 +86,6 @@ func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, sq
 		log.Fatal(err)
 	}
 
-	insertBlock, err := tx.Prepare(insertIntoBlocks)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer insertBlock.Close()
-
 	insertTx, err := tx.Prepare(insertIntoTxs)
 	if err != nil {
 		log.Fatal(err)
@@ -103,7 +94,6 @@ func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, sq
 
 	for n := blockStart; n < blockStart+chunkSize; n++ {
 		block := readBlock(db, n)
-		executeInsertBlock(insertBlock, block)
 		executeInsertTransactions(insertTx, block)
 	}
 	tx.Commit()
@@ -112,7 +102,7 @@ func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, sq
 func executeInsertTransactions(insertTx *sql.Stmt, block *types.Block) {
 	transactions := block.Transactions()
 	signer := types.MakeSigner(params.MainnetChainConfig, block.Number())
-	for _, tx := range transactions {
+	for pos, tx := range transactions {
 		v, r, s := tx.RawSignatureValues()
 		from, _ := signer.Sender(tx)
 		to := tx.To()
@@ -123,39 +113,21 @@ func executeInsertTransactions(insertTx *sql.Stmt, block *types.Block) {
 		_, err := insertTx.Exec(
 			tx.Hash().Hex(),
 			hexutil.Encode(tx.Data()),
-			tx.Gas(),
+			strconv.FormatUint(tx.Gas(), 10),
 			tx.GasPrice().String(),
 			tx.Value().String(),
-			tx.Nonce(),
+			strconv.FormatUint(tx.Nonce(), 10),
 			toStr,
 			from.Hex(),
 			v.String(),
 			r.String(),
 			s.String(),
+			signer.Hash(tx).Hex(),
 			strconv.FormatUint(block.NumberU64(), 10),
-			signer.Hash(tx).Hex())
+			pos)
 		if err != nil {
 			log.Fatal(err)
 		}
-	}
-}
-
-func executeInsertBlock(insertBlock *sql.Stmt, block *types.Block) {
-	_, err := insertBlock.Exec(
-		len(block.Uncles()),
-		len(block.Transactions()),
-		strconv.FormatUint(block.NumberU64(), 10),
-		block.GasLimit(),
-		block.GasUsed(),
-		block.Difficulty().String(),
-		block.Time().String(),
-		strconv.FormatUint(block.Nonce(), 10),
-		block.Coinbase().Hex(),
-		block.ParentHash().Hex(),
-		block.Hash().Hex(),
-		string(block.Extra()))
-	if err != nil {
-		log.Fatal(err)
 	}
 }
 

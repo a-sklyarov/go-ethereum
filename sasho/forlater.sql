@@ -44,8 +44,9 @@ CREATE TABLE `Transactions` (
 	`V`	TEXT,
 	`R`	TEXT,
 	`S`	TEXT,
+    `M`	TEXT,
 	`BlockNumber`	INTEGER,
-    `M`	TEXT
+	`Position`	INTEGER
 );
 
 INSERT INTO Transactions (
