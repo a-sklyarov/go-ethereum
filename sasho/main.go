@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/big"
 	"os"
 	"strconv"
 
@@ -34,7 +33,9 @@ func main() {
 	}
 	defer db.Close()
 
-	startExporting(uint64(4088), db, sqlDb, lastChunkNumberFile)
+	lastChunkNumber := readChunkFromFile(lastChunkNumberFile)
+	fmt.Printf("Last processed chunk number: %d\n", lastChunkNumber)
+	startExporting(lastChunkNumber, db, sqlDb, lastChunkNumberFile)
 }
 
 func startExporting(startChunk uint64, db rawdb.DatabaseReader, sqlDb *sql.DB, lastChunkNumberFile string) {
@@ -60,9 +61,9 @@ func writeChunkToFile(chunkNumber uint64, filePath string) {
 	if err != nil {
 		return
 	}
-	defer file.Close()
 
 	file.WriteString(strconv.FormatUint(chunkNumber, 10))
+	file.Close()
 }
 
 func readChunkFromFile(filePath string) uint64 {
@@ -102,53 +103,60 @@ func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, sq
 
 	for n := blockStart; n < blockStart+chunkSize; n++ {
 		block := readBlock(db, n)
-		transactions := block.Transactions()
-		_, err = insertBlock.Exec(
-			len(block.Uncles()),
-			len(transactions),
+		executeInsertBlock(insertBlock, block)
+		executeInsertTransactions(insertTx, block)
+	}
+	tx.Commit()
+}
+
+func executeInsertTransactions(insertTx *sql.Stmt, block *types.Block) {
+	transactions := block.Transactions()
+	signer := types.MakeSigner(params.MainnetChainConfig, block.Number())
+	for _, tx := range transactions {
+		v, r, s := tx.RawSignatureValues()
+		from, _ := signer.Sender(tx)
+		to := tx.To()
+		toStr := "NULL"
+		if to != nil {
+			toStr = to.Hex()
+		}
+		_, err := insertTx.Exec(
+			tx.Hash().Hex(),
+			hexutil.Encode(tx.Data()),
+			tx.Gas(),
+			tx.GasPrice().String(),
+			tx.Value().String(),
+			tx.Nonce(),
+			toStr,
+			from.Hex(),
+			v.String(),
+			r.String(),
+			s.String(),
 			strconv.FormatUint(block.NumberU64(), 10),
-			block.GasLimit(),
-			block.GasUsed(),
-			block.Difficulty().String(),
-			block.Time().String(),
-			strconv.FormatUint(block.Nonce(), 10),
-			block.Coinbase().Hex(),
-			block.ParentHash().Hex(),
-			block.Hash().Hex(),
-			string(block.Extra()))
+			signer.Hash(tx).Hex())
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		signer := types.MakeSigner(params.MainnetChainConfig, new(big.Int).SetUint64(n))
-		for _, tx := range transactions {
-			v, r, s := tx.RawSignatureValues()
-			from, _ := signer.Sender(tx)
-			to := tx.To()
-			toStr := "NULL"
-			if to != nil {
-				toStr = to.Hex()
-			}
-			_, err = insertTx.Exec(
-				tx.Hash().Hex(),
-				hexutil.Encode(tx.Data()),
-				tx.Gas(),
-				tx.GasPrice().String(),
-				tx.Value().String(),
-				tx.Nonce(),
-				toStr,
-				from.Hex(),
-				v.String(),
-				r.String(),
-				s.String(),
-				n,
-				signer.Hash(tx).Hex())
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
 	}
-	tx.Commit()
+}
+
+func executeInsertBlock(insertBlock *sql.Stmt, block *types.Block) {
+	_, err := insertBlock.Exec(
+		len(block.Uncles()),
+		len(block.Transactions()),
+		strconv.FormatUint(block.NumberU64(), 10),
+		block.GasLimit(),
+		block.GasUsed(),
+		block.Difficulty().String(),
+		block.Time().String(),
+		strconv.FormatUint(block.Nonce(), 10),
+		block.Coinbase().Hex(),
+		block.ParentHash().Hex(),
+		block.Hash().Hex(),
+		string(block.Extra()))
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func readBlock(db rawdb.DatabaseReader, n uint64) *types.Block {
