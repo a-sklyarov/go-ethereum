@@ -18,7 +18,7 @@ import (
 func main() {
 	sqlDbPath := "/media/aleksandar/Samsung_T5/eth_txs.db"
 	chaindata := "/media/aleksandar/Samsung_T5/ethereum/geth/chaindata"
-	lastChunkNumberFile := "/media/aleksandar/Samsung_T5/lastChunk.txt"
+	lastChunkNumberFile := "lastChunk.txt"
 
 	sqlDb, err := sql.Open("sqlite3", sqlDbPath)
 	if err != nil {
