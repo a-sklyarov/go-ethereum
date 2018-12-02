@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -57,13 +56,10 @@ func startExporting(startChunk uint64, db rawdb.DatabaseReader, sqlDb *sql.DB, l
 }
 
 func writeChunkToFile(chunkNumber uint64, filePath string) {
-	file, err := os.Create(filePath)
+	err := ioutil.WriteFile(filePath, []byte(strconv.FormatUint(chunkNumber, 10)), 0644)
 	if err != nil {
-		return
+		log.Fatal(err)
 	}
-
-	file.WriteString(strconv.FormatUint(chunkNumber, 10))
-	file.Close()
 }
 
 func readChunkFromFile(filePath string) uint64 {
