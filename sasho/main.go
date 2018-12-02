@@ -35,7 +35,7 @@ func main() {
 
 	lastChunkNumber := readChunkFromFile(lastChunkNumberFile)
 	fmt.Printf("Last processed chunk number: %d\n", lastChunkNumber)
-	startExporting(lastChunkNumber, db, sqlDb, lastChunkNumberFile)
+	startExporting(lastChunkNumber+1, db, sqlDb, lastChunkNumberFile)
 }
 
 func startExporting(startChunk uint64, db rawdb.DatabaseReader, sqlDb *sql.DB, lastChunkNumberFile string) {
@@ -79,7 +79,7 @@ func readChunkFromFile(filePath string) uint64 {
 func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, sqlDb *sql.DB) {
 	insertIntoTxs := `
 		INSERT INTO Transactions
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 	tx, err := sqlDb.Begin()
 	if err != nil {
