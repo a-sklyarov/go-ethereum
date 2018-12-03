@@ -3,8 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -18,7 +18,6 @@ import (
 func main() {
 	sqlDbPath := "/media/aleksandar/Samsung_T5/eth_txs.db"
 	chaindata := "/media/aleksandar/Samsung_T5/ethereum/geth/chaindata"
-	lastChunkNumberFile := "lastChunk.txt"
 
 	sqlDb, err := sql.Open("sqlite3", sqlDbPath)
 	if err != nil {
@@ -32,44 +31,29 @@ func main() {
 	}
 	defer db.Close()
 
-	lastChunkNumber := readChunkFromFile(lastChunkNumberFile)
-	fmt.Printf("Last processed chunk number: %d\n", lastChunkNumber)
-	startExporting(lastChunkNumber+1, db, sqlDb, lastChunkNumberFile)
+	startChunk, err := strconv.ParseUint(os.Args[1], 10, 64)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Starting from: %d\n", startChunk)
+	startExporting(startChunk, db, sqlDb)
 }
 
-func startExporting(startChunk uint64, db rawdb.DatabaseReader, sqlDb *sql.DB, lastChunkNumberFile string) {
+func startExporting(startChunk uint64, db rawdb.DatabaseReader, sqlDb *sql.DB) {
+	i := startChunk
+
 	defer func() {
 		if err := recover(); err != nil {
 			fmt.Printf("Exception: %v\n", err)
-			fmt.Printf("Reading last chunk number from file...\n")
-			lastChunkNumber := readChunkFromFile(lastChunkNumberFile)
-			fmt.Printf("Read from file: %d\n", lastChunkNumber)
-			startExporting(lastChunkNumber+1, db, sqlDb, lastChunkNumberFile)
+			fmt.Printf("Continuing again from: %d\n", i)
+			startExporting(i, db, sqlDb)
 		}
 	}()
 
-	for i := startChunk; i < 6770; i++ {
+	for i = startChunk; i < 6770; i++ {
 		exportBlocksChunk(1000*i, 1000, db, sqlDb)
 		fmt.Printf("Chunk %d\n", i)
-		writeChunkToFile(i, lastChunkNumberFile)
 	}
-}
-
-func writeChunkToFile(chunkNumber uint64, filePath string) {
-	err := ioutil.WriteFile(filePath, []byte(strconv.FormatUint(chunkNumber, 10)), 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func readChunkFromFile(filePath string) uint64 {
-	data, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	res, _ := strconv.ParseUint(string(data), 10, 64)
-	return res
 }
 
 func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, sqlDb *sql.DB) {
