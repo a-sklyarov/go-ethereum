@@ -27,7 +27,7 @@ func main() {
 
 func prepareOutputFile(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		header := "Hash,Data,Gas,GasPrice,Value,Nonce,To,From,V,R,S,M,BlockNumber,Position\n"
+		header := "To,From,V,R,S,M,BlockNumber,Position,Hash,Data,Gas,GasPrice,Value,Nonce\n"
 		ioutil.WriteFile(path, []byte(header), 0644)
 	}
 }
@@ -73,7 +73,7 @@ func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, ou
 
 func executeInsertTransactions(block *types.Block, outputFile string) {
 	txChunk := ""
-	txFormat := "%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n"
+	txFormat := "%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n"
 	transactions := block.Transactions()
 	signer := types.MakeSigner(params.MainnetChainConfig, block.Number())
 	for pos, tx := range transactions {
@@ -85,12 +85,6 @@ func executeInsertTransactions(block *types.Block, outputFile string) {
 			toStr = to.Hex()
 		}
 		txChunk += fmt.Sprintf(txFormat,
-			tx.Hash().Hex(),
-			hexutil.Encode(tx.Data()),
-			strconv.FormatUint(tx.Gas(), 10),
-			tx.GasPrice().String(),
-			tx.Value().String(),
-			strconv.FormatUint(tx.Nonce(), 10),
 			toStr,
 			from.Hex(),
 			v.String(),
@@ -98,7 +92,13 @@ func executeInsertTransactions(block *types.Block, outputFile string) {
 			s.String(),
 			signer.Hash(tx).Hex(),
 			strconv.FormatUint(block.NumberU64(), 10),
-			pos)
+			pos,
+			tx.Hash().Hex(),
+			hexutil.Encode(tx.Data()),
+			strconv.FormatUint(tx.Gas(), 10),
+			tx.GasPrice().String(),
+			tx.Value().String(),
+			strconv.FormatUint(tx.Nonce(), 10))
 	}
 	writeTxChunkToFile(txChunk, outputFile)
 }
