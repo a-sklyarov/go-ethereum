@@ -17,12 +17,12 @@ import (
 func main() {
 	outputFile := "/media/aleksandar/Samsung_T5/eth-transactions.txt"
 	prepareOutputFile(outputFile)
-	startChunk, err := strconv.ParseUint(os.Args[1], 10, 64)
+	startBlock, err := strconv.ParseUint(os.Args[1], 10, 64)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("Starting from: %d\n", startChunk)
-	startExporting(startChunk, outputFile)
+	fmt.Printf("Starting from: %d\n", startBlock)
+	startExporting(startBlock, outputFile)
 }
 
 func prepareOutputFile(path string) {
@@ -32,7 +32,7 @@ func prepareOutputFile(path string) {
 	}
 }
 
-func startExporting(startChunk uint64, outputFile string) {
+func startExporting(startBlock uint64, outputFile string) {
 	var i uint64
 	db := openChainDb()
 
@@ -47,9 +47,12 @@ func startExporting(startChunk uint64, outputFile string) {
 		}
 	}()
 
-	for i = startChunk; i < 6771; i++ {
-		exportBlocksChunk(1000*i, 1000, db, outputFile)
-		fmt.Printf("Chunk %d\n", i)
+	for i = startBlock; i < 6771001; i++ {
+		block := readBlock(db, i)
+		executeInsertTransactions(block, outputFile)
+		if i%1000 == 0 {
+			fmt.Printf("Block %d\n", i)
+		}
 	}
 	db.Close()
 }
@@ -62,13 +65,6 @@ func openChainDb() *ethdb.LDBDatabase {
 	}
 
 	return db
-}
-
-func exportBlocksChunk(blockStart, chunkSize uint64, db rawdb.DatabaseReader, outputFile string) {
-	for n := blockStart; n < blockStart+chunkSize; n++ {
-		block := readBlock(db, n)
-		executeInsertTransactions(block, outputFile)
-	}
 }
 
 func executeInsertTransactions(block *types.Block, outputFile string) {
