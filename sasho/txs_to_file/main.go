@@ -27,7 +27,7 @@ func main() {
 
 func prepareOutputFile(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		header := "To,From,V,R,S,M,BlockNumber,Position,Hash,Data,Gas,GasPrice,Value,Nonce\n"
+		header := "To,From,V,R,S,M,BlockNumber,Position,Data,Gas,GasPrice,Value,Nonce\n"
 		ioutil.WriteFile(path, []byte(header), 0644)
 	}
 }
@@ -41,13 +41,14 @@ func startExporting(startBlock uint64, outputFile string) {
 			fmt.Printf("Exception: %v\n", err)
 			fmt.Println("Closing blockchain database...")
 			db.Close()
+			db = nil
 			fmt.Println("Blockchain database closed.")
 			fmt.Printf("Continuing again from: %d\n", i)
 			startExporting(i, outputFile)
 		}
 	}()
 
-	for i = startBlock; i < 6771001; i++ {
+	for i = startBlock; i < 6855001; i++ {
 		block := readBlock(db, i)
 		executeInsertTransactions(block, outputFile)
 		if i%1000 == 0 {
@@ -69,11 +70,18 @@ func openChainDb() *ethdb.LDBDatabase {
 
 func executeInsertTransactions(block *types.Block, outputFile string) {
 	txChunk := ""
-	txFormat := "%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n"
+	txFormat := "%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v\n"
 	transactions := block.Transactions()
 	signer := types.MakeSigner(params.MainnetChainConfig, block.Number())
+	oldSigner := types.FrontierSigner{}
 	for pos, tx := range transactions {
 		v, r, s := tx.RawSignatureValues()
+		var M string
+		if tx.Protected() {
+			M = signer.Hash(tx).Hex()
+		} else {
+			M = oldSigner.Hash(tx).Hex()
+		}
 		from, _ := signer.Sender(tx)
 		to := tx.To()
 		toStr := "NULL"
@@ -86,10 +94,9 @@ func executeInsertTransactions(block *types.Block, outputFile string) {
 			v.String(),
 			r.String(),
 			s.String(),
-			signer.Hash(tx).Hex(),
+			M,
 			strconv.FormatUint(block.NumberU64(), 10),
 			pos,
-			tx.Hash().Hex(),
 			hexutil.Encode(tx.Data()),
 			strconv.FormatUint(tx.Gas(), 10),
 			tx.GasPrice().String(),
