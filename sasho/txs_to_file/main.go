@@ -15,14 +15,16 @@ import (
 )
 
 func main() {
-	outputFile := "/media/aleksandar/Samsung_T5/eth-transactions.txt"
-	prepareOutputFile(outputFile)
 	startBlock, err := strconv.ParseUint(os.Args[1], 10, 64)
+	endBlock, err := strconv.ParseUint(os.Args[2], 10, 64)
+	outputFile := os.Args[3]
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("Starting from: %d\n", startBlock)
-	startExporting(startBlock, outputFile)
+
+	prepareOutputFile(outputFile)
+	fmt.Printf("Exporting from block %d to block %d\n", startBlock, endBlock)
+	startExporting(startBlock, endBlock, outputFile)
 }
 
 func prepareOutputFile(path string) {
@@ -32,7 +34,7 @@ func prepareOutputFile(path string) {
 	}
 }
 
-func startExporting(startBlock uint64, outputFile string) {
+func startExporting(startBlock uint64, endBlock uint64, outputFile string) {
 	var i uint64
 	db := openChainDb()
 
@@ -44,11 +46,11 @@ func startExporting(startBlock uint64, outputFile string) {
 			db = nil
 			fmt.Println("Blockchain database closed.")
 			fmt.Printf("Continuing again from: %d\n", i)
-			startExporting(i, outputFile)
+			startExporting(i, endBlock, outputFile)
 		}
 	}()
 
-	for i = startBlock; i < 6855001; i++ {
+	for i = startBlock; i < endBlock; i++ {
 		block := readBlock(db, i)
 		executeInsertTransactions(block, outputFile)
 		if i%1000 == 0 {
@@ -59,7 +61,7 @@ func startExporting(startBlock uint64, outputFile string) {
 }
 
 func openChainDb() *ethdb.LDBDatabase {
-	chaindata := "/media/aleksandar/Samsung_T5/ethereum/geth/chaindata"
+	chaindata := "/media/aleksandar/Samsung_T5/ethereum2/geth/chaindata"
 	db, err := ethdb.NewLDBDatabase(chaindata, 512, 1024)
 	if err != nil {
 		log.Fatal(err)
