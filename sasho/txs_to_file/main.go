@@ -14,6 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+// To run this:
+// export GOPATH=/home/aleksandar/git/go-ethereum/build/_workspace
+// go run main.go 7705001 7705005 /media/aleksandar/Samsung_T5/go-test-txs.txt
 func main() {
 	startBlock, err := strconv.ParseUint(os.Args[1], 10, 64)
 	endBlock, err := strconv.ParseUint(os.Args[2], 10, 64)
