@@ -131,7 +131,7 @@ func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCh
 			log.Warn("Switch sync mode from full sync to fast sync")
 		}
 	} else {
-		if blockchain.CurrentBlock().NumberU64() > 0 {
+		if blockchain.CurrentBlock().NumberU64() < 0 {
 			// Print warning log if database is not empty to run fast sync.
 			log.Warn("Switch sync mode from fast sync to full sync")
 		} else {
