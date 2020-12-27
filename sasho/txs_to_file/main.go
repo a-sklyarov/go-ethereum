@@ -63,9 +63,9 @@ func startExporting(startBlock uint64, endBlock uint64, outputFile string) {
 	db.Close()
 }
 
-func openChainDb() *ethdb.LDBDatabase {
+func openChainDb() ethdb.Database {
 	chaindata := "/media/aleksandar/Samsung_T5/ethereum2/geth/chaindata"
-	db, err := ethdb.NewLDBDatabase(chaindata, 512, 1024)
+	db, err := rawdb.NewLevelDBDatabase(chaindata, 512, 1024, "eth/db/chaindata/") //ethdb.NewLDBDatabase(chaindata, 512, 1024)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func writeTxChunkToFile(txChunk, outputFile string) {
 	f.Close()
 }
 
-func readBlock(db rawdb.DatabaseReader, n uint64) *types.Block {
+func readBlock(db ethdb.Reader, n uint64) *types.Block {
 	hash := rawdb.ReadCanonicalHash(db, n)
 	return rawdb.ReadBlock(db, hash, n)
 }
